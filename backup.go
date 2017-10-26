@@ -12,13 +12,11 @@ import (
 )
 
 func writeTo(entry *protos.KVPair, w io.Writer) error {
-	buf := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutUvarint(buf, uint64(entry.Size()))
-	_, err := w.Write(buf[0:n])
+	err := binary.Write(w, binary.LittleEndian, uint64(entry.Size()))
 	if err != nil {
 		return err
 	}
-	buf, err = entry.Marshal()
+	buf, err := entry.Marshal()
 	if err != nil {
 		return err
 	}
@@ -103,22 +101,11 @@ func (db *DB) Load(r io.Reader) error {
 	}
 
 	for {
-		buf, err := br.Peek(binary.MaxVarintLen64)
+		var sz uint64
+		err := binary.Read(br, binary.LittleEndian, &sz)
 		if err == io.EOF {
 			break
-		} else if len(buf) > 0 && len(buf) < binary.MaxVarintLen64 && err != nil {
-			// Ignore
 		} else if err != nil {
-			return err
-		}
-
-		sz, n := binary.Uvarint(buf)
-		if sz <= 0 {
-			return ErrInvalidDump
-		}
-
-		_, err = br.Discard(n)
-		if err != nil {
 			return err
 		}
 
